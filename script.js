@@ -1,19 +1,23 @@
 const video = document.getElementById("camera");
+const cameraSelect = document.getElementById("cameraSelect");
 const btn = document.getElementById("capture");
 const ocrText = document.getElementById("ocrText");
 const cardResult = document.getElementById("cardResult");
 const deckDiv = document.getElementById("deck");
 
 // inicializar camara (preferir cámara trasera)
-async function startCameraPreferRear() {
+async function startCameraPreferRear(preferredDeviceId = null) {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
   // intentos con diferentes constraints
-  const attempts = [
+  const attempts = [];
+  // si viene un deviceId preferido, intentar con ese primero
+  if (preferredDeviceId) attempts.push({ video: { deviceId: { exact: preferredDeviceId } } });
+  attempts.push(
     { video: { facingMode: { exact: "environment" } } },
     { video: { facingMode: "environment" } },
     { video: true }
-  ];
+  );
 
   for (const constraints of attempts) {
     try {
@@ -34,13 +38,53 @@ async function startCameraPreferRear() {
     if (back) {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: back.deviceId } } });
       video.srcObject = stream;
+      // si existe el selector, actualizar su valor para reflejar el device seleccionado
+      if (cameraSelect) {
+        cameraSelect.value = back.deviceId;
+      }
     }
   } catch (e) {
     console.error("No se pudo acceder a la cámara trasera:", e);
   }
 }
 
-startCameraPreferRear();
+// poblar selector de cámaras y arrancar la cámara con la seleccionada
+async function populateCameraSelect() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+    startCameraPreferRear(); // fallback
+    return;
+  }
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(d => d.kind === "videoinput");
+    if (cameraSelect) {
+      cameraSelect.innerHTML = "";
+      videoDevices.forEach((d, i) => {
+        const opt = document.createElement("option");
+        opt.value = d.deviceId;
+        opt.textContent = d.label || `Cámara ${i+1}`;
+        cameraSelect.appendChild(opt);
+      });
+      // seleccionar por defecto una trasera si hay etiqueta que lo indique
+      const back = videoDevices.find(d => /back|rear|environment/i.test(d.label));
+      if (back) cameraSelect.value = back.deviceId;
+      cameraSelect.addEventListener("change", () => {
+        startCameraPreferRear(cameraSelect.value);
+      });
+      // iniciar con la seleccion actual
+      if (cameraSelect.value) {
+        startCameraPreferRear(cameraSelect.value);
+        return;
+      }
+    }
+    // fallback si no hay select o sin deviceId
+    startCameraPreferRear();
+  } catch (e) {
+    console.error("Error enumerando dispositivos:", e);
+    startCameraPreferRear();
+  }
+}
+populateCameraSelect();
 
 // cargar mazo al iniciar
 let deck = JSON.parse(localStorage.getItem("mazo")) || [];
