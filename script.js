@@ -67,34 +67,6 @@ btn.addEventListener("click", async () => {
   // buscar carta en Lorcana API
   const url = API_BASE + encodeURIComponent(nombre);
 
-  // inyectar estilos para centrar la carta (recuadro)
-  function injectCardStyles() {
-    if (document.getElementById("lorcana-card-styles")) return;
-    const style = document.createElement("style");
-    style.id = "lorcana-card-styles";
-    style.textContent = `
-      .card-box {
-        max-width: 360px;
-        margin: 16px auto;
-        padding: 12px;
-        border: 1px solid rgba(0,0,0,0.12);
-        border-radius: 8px;
-        background: #fff;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        text-align: center;
-      }
-      .card-box h3 { margin: 8px 0; font-size: 1.05rem; }
-      .card-image-wrap { display:flex; justify-content:center; align-items:center; padding:6px 0; }
-      .card-box img { max-width:100%; height:auto; display:block; border-radius:4px; }
-      .card-box button { margin-top:8px; }
-      @media (min-width:800px) {
-        .card-box { max-width:420px; }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  injectCardStyles();
-
   try {
     // preparar headers de autenticación si existe api key
     const apiKey = getApiKey();
@@ -124,8 +96,28 @@ btn.addEventListener("click", async () => {
          <button onclick="addToDeck('${encodeURIComponent(JSON.stringify(carta))}')">
            ➕ Agregar al mazo
          </button>
+
+         <!-- botón para mostrar la respuesta raw y contenedor -->
+         <div style="margin-top:10px;">
+           <button id="toggleRawBtn">Mostrar respuesta (raw)</button>
+         </div>
+         <pre id="apiResponse" class="api-response" style="display:none;"></pre>
        </div>
      `;
+
+     // rellenar y activar toggle para mostrar la respuesta completa de la API
+     (function attachRawToggle() {
+       const pre = cardResult.querySelector("#apiResponse");
+       const btn = cardResult.querySelector("#toggleRawBtn");
+       if (!pre || !btn) return;
+       pre.textContent = JSON.stringify(carta, null, 2);
+       btn.addEventListener("click", () => {
+         const isHidden = pre.style.display === "none";
+         pre.style.display = isHidden ? "block" : "none";
+         btn.textContent = isHidden ? "Ocultar respuesta (raw)" : "Mostrar respuesta (raw)";
+       });
+     })();
+
    } catch (e) {
     console.error(e);
     cardResult.textContent = "No se encontró la carta o hubo un error. Si la API requiere autenticación, ejecuta promptForApiKey() o window.setLorcanaApiKey(key) para guardar la key.";
@@ -173,3 +165,43 @@ window.promptForApiKey = () => {
     alert(k ? "API key guardada en localStorage" : "API key eliminada");
   }
 }
+
+// inyectar estilos para centrar la carta (recuadro)
+function injectCardStyles() {
+  if (document.getElementById("lorcana-card-styles")) return;
+  const style = document.createElement("style");
+  style.id = "lorcana-card-styles";
+  style.textContent = `
+    .card-box {
+      max-width: 360px;
+      margin: 16px auto;
+      padding: 12px;
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      text-align: center;
+    }
+    .card-box h3 { margin: 8px 0; font-size: 1.05rem; }
+    .card-image-wrap { display:flex; justify-content:center; align-items:center; padding:6px 0; }
+    .card-box img { max-width:100%; height:auto; display:block; border-radius:4px; }
+    .card-box button { margin-top:8px; }
+    .api-response {
+      text-align: left;
+      background: #f7f7f7;
+      padding: 8px;
+      margin-top: 8px;
+      max-height: 300px;
+      overflow: auto;
+      border-radius: 4px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-size: 12px;
+    }
+    @media (min-width:800px) {
+      .card-box { max-width:420px; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+injectCardStyles();
