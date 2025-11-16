@@ -103,8 +103,9 @@ btn.addEventListener("click", async () => {
   ocrText.textContent = "Leyendo texto...";
   const { data: { text } } = await Tesseract.recognize(canvas, "eng");
 
-  const nombre = text.split("\n")[0].trim();
-  ocrText.textContent = nombre || "(No se detectó nombre)";
+  const fullOcr = (text || "").trim();
+  const nombre = fullOcr.split("\n")[0].trim(); // usar primera línea para la búsqueda
+  ocrText.textContent = fullOcr || "(No se detectó texto)";
 
   if (!nombre) return;
 
