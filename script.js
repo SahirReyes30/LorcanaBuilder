@@ -65,7 +65,7 @@ btn.addEventListener("click", async () => {
   if (!nombre) return;
 
   // buscar carta en Lorcana API
-  const url = "https://lorcana-api.com/fuzzy/" + encodeURIComponent(nombre);
+  const url = API_BASE + encodeURIComponent(nombre);
 
   // inyectar estilos para centrar la carta (recuadro)
   function injectCardStyles() {
@@ -96,23 +96,40 @@ btn.addEventListener("click", async () => {
   injectCardStyles();
 
   try {
-    const res = await fetch(url);
-    const carta = await res.json();
+    // preparar headers de autenticación si existe api key
+    const apiKey = getApiKey();
+    const headers = apiKey ? { "Authorization": `Bearer ${apiKey}` } : {};
+    const res = await fetch(url, { headers });
 
-    cardResult.innerHTML = `
-      <div class="card-box">
-        <h3>${carta.name} ${carta.subtitle || ""}</h3>
-        <div class="card-image-wrap">
-          <img src="${carta.image_large}" alt="${carta.name}">
+    // manejar autenticación requerida
+    if (res.status === 401 || res.status === 403) {
+      cardResult.innerHTML = `
+        <div class="card-box">
+          <p>Autenticación requerida para acceder a la API.</p>
+          <button onclick="promptForApiKey()">Ingresar API key</button>
         </div>
-        <button onclick="addToDeck('${encodeURIComponent(JSON.stringify(carta))}')">
-          ➕ Agregar al mazo
-        </button>
-      </div>
-    `;
-  } catch (e) {
-    cardResult.textContent = "No se encontró la carta.";
-  }
+      `;
+      return;
+    }
+    if (!res.ok) throw new Error("Respuesta no OK: " + res.status);
+
+     const carta = await res.json();
+
+     cardResult.innerHTML = `
+       <div class="card-box">
+         <h3>${carta.name} ${carta.subtitle || ""}</h3>
+         <div class="card-image-wrap">
+           <img src="${carta.image_large}" alt="${carta.name}">
+         </div>
+         <button onclick="addToDeck('${encodeURIComponent(JSON.stringify(carta))}')">
+           ➕ Agregar al mazo
+         </button>
+       </div>
+     `;
+   } catch (e) {
+    console.error(e);
+    cardResult.textContent = "No se encontró la carta o hubo un error. Si la API requiere autenticación, ejecuta promptForApiKey() o window.setLorcanaApiKey(key) para guardar la key.";
+   }
 });
 
 
@@ -136,4 +153,23 @@ function renderDeck() {
       </div>
     `;
   });
+}
+
+// Config / helpers de autenticación para la API
+const API_BASE = "https://lorcana-api.com/fuzzy/";
+function getApiKey() {
+  return localStorage.getItem("lorcanaApiKey") || null;
+}
+function setApiKey(key) {
+  if (key) localStorage.setItem("lorcanaApiKey", key);
+  else localStorage.removeItem("lorcanaApiKey");
+}
+// Exponer helpers mínimos para que el usuario pueda setear la key desde consola
+window.setLorcanaApiKey = setApiKey;
+window.promptForApiKey = () => {
+  const k = prompt("Ingresa tu API key para la Lorcana API (vacío para quitarla):", getApiKey() || "");
+  if (k !== null) {
+    setApiKey(k.trim() || null);
+    alert(k ? "API key guardada en localStorage" : "API key eliminada");
+  }
 }
